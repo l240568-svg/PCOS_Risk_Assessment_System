@@ -1,10 +1,75 @@
+
 CREATE TABLE USERS (
 user_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 first_name VARCHAR(20) NOT NULL,
 last_name VARCHAR(20) NOT NULL, 
 email VARCHAR(50) UNIQUE NOT NULL,
+Specialization VARCHAR(50) NOT NULL, --Gynecologyst, Endocrinologist
+hospital VARCHAR(50),
+clinic_address VARCHAR(60) NOT NULL,
+Liscence_number VARCHAR(50) UNIQUE NOT NULL,
 password_hash VARCHAR(255) NOT NULL,
 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 -- email validation is done by Pydantic in Backend
+ALTER TABLE USERS
+ADD CONSTRAINT check_spec
+CHECK (Specialization IN ('Gynecologyst', 'Endocrinologist'))
+
+CREATE TABLE PATIENTS (
+patient_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+doctor_id INT REFERENCES USERS(user_id),
+first_name VARCHAR(20) NOT NULL,
+last_name VARCHAR(20) NOT NULL, 
+email VARCHAR(50) UNIQUE NOT NULL,
+date_of_birth DATE NOT NULL,
+height_cm DECIMAL(4,2) NOT NULL,
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE ASSESSMENTS(
+assessment_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+patient_id INT REFERENCES PATIENTS(patient_id),
+assesment_date DATE DEFAULT CURRENT_DATE,
+weight_kg DECIMAL(6,3) NOT NULL,
+cycle_reg BOOLEAN NOT NULL, 
+cycle_len INT NOT NULL,
+"fsh(mIU/ml)" DECIMAL(4,2) NOT NULL,
+"lh(ng/ml)" DECIMAL(4,2) NOT NULL,
+weight_gain BOOLEAN NOT NULL,
+hair_growth BOOLEAN NOT NULL,
+skin_darkening BOOLEAN NOT NULL,
+fast_food BOOLEAN NOT NULL,
+reg_exercise BOOLEAN NOT NULL,
+follicle_l INT NOT NULL,
+follicle_R INT NOT NULL
+) 
+
+ALTER TABLE ASSESSMENTS 
+ADD CONSTRAINT chk_fsh
+CHECK ("fsh(mIU/ml)" >=0 AND "fsh(mIU/ml)" <=200) 
+
+ALTER TABLE ASSESSMENTS 
+ADD CONSTRAINT chk_lh
+CHECK ("lh(ng/ml)" >=0 AND "lh(ng/ml)" <=200)
+
+ALTER TABLE ASSESSMENTS 
+ADD CONSTRAINT chk_follicle_l
+CHECK (follicle_l BETWEEN 0 AND 50)
+
+ALTER TABLE ASSESSMENTS 
+ADD CONSTRAINT chk_follicle_r
+CHECK (follicle_l BETWEEN 0 AND 50)
+
+CREATE TABLE ASSESSMENT_RESULTS(
+result_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+assessment_id INT REFERENCES ASSESSMENTS(assessment_id),
+prediction_prob DECIMAL(4,2) NOT NULL,
+prediction_class VARCHAR(50) NOT NULL,
+generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+
+ALTER TABLE ASSESSMENT_RESULTS
+ADD CONSTRAINT pred_class
+CHECK (prediction_class IN ('High Risk', 'Low Risk', 'Medium Risk', 'No Risk'))
