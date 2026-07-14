@@ -1,75 +1,180 @@
+-- ============================================
+-- AI-Assisted PCOS Risk Assessment System
+-- PostgreSQL Schema
+-- ============================================
 
-CREATE TABLE USERS (
-user_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-first_name VARCHAR(20) NOT NULL,
-last_name VARCHAR(20) NOT NULL, 
-email VARCHAR(50) UNIQUE NOT NULL,
-Specialization VARCHAR(50) NOT NULL, --Gynecologyst, Endocrinologist
-hospital VARCHAR(50),
-clinic_address VARCHAR(60) NOT NULL,
-Liscence_number VARCHAR(50) UNIQUE NOT NULL,
-password_hash VARCHAR(255) NOT NULL,
-created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
--- email validation is done by Pydantic in Backend
-ALTER TABLE USERS
-ADD CONSTRAINT check_spec
-CHECK (Specialization IN ('Gynecologyst', 'Endocrinologist'))
+-- =====================
+-- USERS
+-- =====================
 
-CREATE TABLE PATIENTS (
-patient_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-doctor_id INT REFERENCES USERS(user_id),
-first_name VARCHAR(20) NOT NULL,
-last_name VARCHAR(20) NOT NULL, 
-email VARCHAR(50) UNIQUE NOT NULL,
-date_of_birth DATE NOT NULL,
-height_cm DECIMAL(4,2) NOT NULL,
-created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE users (
+    user_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+
+    email VARCHAR(255) UNIQUE NOT NULL,
+
+    specialization VARCHAR(50) NOT NULL,
+    hospital VARCHAR(100),
+    clinic_address VARCHAR(150),
+
+    license_number VARCHAR(50) UNIQUE NOT NULL,
+
+    password_hash VARCHAR(255) NOT NULL,
+
+    created_at DATE DEFAULT CURRENT_DATE,
+    updated_at DATE DEFAULT CURRENT_DATE,
+
+    CONSTRAINT chk_specialization
+    CHECK (
+        specialization IN (
+            'Gynecologist',
+            'Endocrinologist'
+        )
+    )
 );
 
-CREATE TABLE ASSESSMENTS(
-assessment_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-patient_id INT REFERENCES PATIENTS(patient_id),
-assesment_date DATE DEFAULT CURRENT_DATE,
-weight_kg DECIMAL(6,3) NOT NULL,
-cycle_reg BOOLEAN NOT NULL, 
-cycle_len INT NOT NULL,
-"fsh(mIU/ml)" DECIMAL(4,2) NOT NULL,
-"lh(ng/ml)" DECIMAL(4,2) NOT NULL,
-weight_gain BOOLEAN NOT NULL,
-hair_growth BOOLEAN NOT NULL,
-skin_darkening BOOLEAN NOT NULL,
-fast_food BOOLEAN NOT NULL,
-reg_exercise BOOLEAN NOT NULL,
-follicle_l INT NOT NULL,
-follicle_R INT NOT NULL
-) 
 
-ALTER TABLE ASSESSMENTS 
-ADD CONSTRAINT chk_fsh
-CHECK ("fsh(mIU/ml)" >=0 AND "fsh(mIU/ml)" <=200) 
 
-ALTER TABLE ASSESSMENTS 
-ADD CONSTRAINT chk_lh
-CHECK ("lh(ng/ml)" >=0 AND "lh(ng/ml)" <=200)
+-- =====================
+-- PATIENTS
+-- =====================
 
-ALTER TABLE ASSESSMENTS 
-ADD CONSTRAINT chk_follicle_l
-CHECK (follicle_l BETWEEN 0 AND 50)
+CREATE TABLE patients (
 
-ALTER TABLE ASSESSMENTS 
-ADD CONSTRAINT chk_follicle_r
-CHECK (follicle_l BETWEEN 0 AND 50)
+    patient_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
-CREATE TABLE ASSESSMENT_RESULTS(
-result_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-assessment_id INT REFERENCES ASSESSMENTS(assessment_id),
-prediction_prob DECIMAL(4,2) NOT NULL,
-prediction_class VARCHAR(50) NOT NULL,
-generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+    doctor_id INT NOT NULL
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
 
-ALTER TABLE ASSESSMENT_RESULTS
-ADD CONSTRAINT pred_class
-CHECK (prediction_class IN ('High Risk', 'Low Risk', 'Medium Risk', 'No Risk'))
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+
+    email VARCHAR(255) UNIQUE,
+
+    date_of_birth DATE NOT NULL,
+
+    height_cm DECIMAL(5,2) NOT NULL,
+
+    created_at DATE DEFAULT CURRENT_DATE,
+
+    CONSTRAINT chk_height
+    CHECK (
+        height_cm BETWEEN 80 AND 250
+    )
+
+);
+
+
+
+-- =====================
+-- ASSESSMENTS
+-- =====================
+
+CREATE TABLE assessments (
+
+    assessment_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    patient_id INT NOT NULL
+        REFERENCES patients(patient_id)
+        ON DELETE CASCADE,
+
+    assessment_date DATE DEFAULT CURRENT_DATE,
+
+    weight_kg DECIMAL(5,2) NOT NULL,
+
+    cycle_regular BOOLEAN NOT NULL,
+
+    cycle_length INT NOT NULL,
+
+    fsh_miu_ml DECIMAL(6,2) NOT NULL,
+
+    lh_miu_ml DECIMAL(6,2) NOT NULL,
+
+    amh_ng_ml DECIMAL(6,2),
+
+    fsh_lh_ratio DECIMAL(6,2),
+
+    weight_gain BOOLEAN NOT NULL,
+
+    hair_growth BOOLEAN NOT NULL,
+
+    skin_darkening BOOLEAN NOT NULL,
+
+    fast_food BOOLEAN NOT NULL,
+
+    regular_exercise BOOLEAN NOT NULL,
+
+    follicle_left INT NOT NULL,
+
+    follicle_right INT NOT NULL,
+
+    CONSTRAINT chk_weight
+        CHECK (weight_kg BETWEEN 20 AND 300),
+
+    CONSTRAINT chk_cycle_length
+        CHECK (cycle_length BETWEEN 15 AND 120),
+
+    CONSTRAINT chk_fsh
+        CHECK (fsh_miu_ml BETWEEN 0 AND 200),
+
+    CONSTRAINT chk_lh
+        CHECK (lh_miu_ml BETWEEN 0 AND 200),
+
+    CONSTRAINT chk_amh
+        CHECK (
+            amh_ng_ml IS NULL
+            OR amh_ng_ml BETWEEN 0 AND 50
+        ),
+
+    CONSTRAINT chk_ratio
+        CHECK (
+            fsh_lh_ratio IS NULL
+            OR fsh_lh_ratio BETWEEN 0 AND 20
+        ),
+
+    CONSTRAINT chk_follicle_left
+        CHECK (follicle_left BETWEEN 0 AND 50),
+
+    CONSTRAINT chk_follicle_right
+        CHECK (follicle_right BETWEEN 0 AND 50)
+
+);
+
+
+
+-- =====================
+-- ASSESSMENT RESULTS
+-- =====================
+
+CREATE TABLE assessment_results (
+
+    result_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    assessment_id INT NOT NULL UNIQUE
+        REFERENCES assessments(assessment_id)
+        ON DELETE CASCADE,
+
+    prediction_probability DECIMAL(5,4) NOT NULL,
+
+    prediction_class VARCHAR(20) NOT NULL,
+
+    doctor_notes TEXT,
+
+    CONSTRAINT chk_prediction_probability
+        CHECK (
+            prediction_probability BETWEEN 0 AND 1
+        ),
+
+    CONSTRAINT chk_prediction_class
+        CHECK (
+            prediction_class IN (
+                'High Risk',
+                'Low Risk',
+				'Medium Risk'
+            )
+        )
+
+);
