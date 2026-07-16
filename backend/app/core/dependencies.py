@@ -20,3 +20,34 @@ def get_db() -> Generator[Session, None, None]:
     finally:
         db.close()
 
+
+def get_current_doctor(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    payload = decode_access_token(token)
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    doctor_id = payload.get("sub")
+
+    if doctor_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    doctor = db.query(User).filter(User.user_id == int(doctor_id)).first()
+
+    if not doctor:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Doctor not found",
+        )
+
+    return doctor
+

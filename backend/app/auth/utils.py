@@ -65,3 +65,6 @@ def validate_password_strength(password: str) -> None:
 
     if not any(character in special_characters for character in password):
         raise ValueError("Password must contain at least one special character")    
+        raise ValueError("Password must contain at least one special character")    
+    
+def generate_OTP
