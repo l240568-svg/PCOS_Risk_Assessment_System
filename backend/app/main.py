@@ -1,18 +1,16 @@
-from fastapi import FastAPI, Depends
-from sqlalchemy import text
-from sqlalchemy.orm import Session
+from fastapi import FastAPI
 
-from app.core.dependencies import get_db
+from app.auth.router import router as auth_router
 
 
-app = FastAPI()
+app = FastAPI(title="PCOS Risk Assessment API")
 
 
-@app.get("/db-test")
-def db_test(db: Session = Depends(get_db)):
-    result = db.execute(text("SELECT 1")).scalar()
+app.include_router(auth_router)
 
-    return {
-        "database_connected": True,
-        "result": result,
-    }
+
+@app.get("/")
+def root():
+    return {"message": "PCOS Risk Assessment API is running"}
+
+ 
