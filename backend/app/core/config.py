@@ -39,6 +39,8 @@ class Settings(BaseSettings):
         )
 
 
+# save the settings object in cache so that it is created only once and reused
+#SINGLETON DESGIN PATTERN   
 @lru_cache
 def get_settings() -> Settings:
     return Settings()

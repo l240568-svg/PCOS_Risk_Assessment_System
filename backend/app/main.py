@@ -5,6 +5,9 @@ from app.auth.router import router as auth_router
 
 app = FastAPI(title="PCOS Risk Assessment API")
 
+@app.get('/')
+def read_root():
+    return {"message": "Welcome to the PCOS Risk Assessment API"}
 
 app.include_router(auth_router)
 
