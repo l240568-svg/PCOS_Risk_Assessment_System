@@ -48,6 +48,10 @@ def decode_access_token(token: str) -> dict | None:
         return None
     
 def validate_password_strength(password: str) -> None:
+
+    if len(password.encode("utf-8")) > 72:
+        raise ValueError("Password cannot be longer than 72 bytes")
+    
     if len(password) < 8:
         raise ValueError("Password must be at least 8 characters long")
 
