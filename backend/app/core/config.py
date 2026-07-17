@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    
+    MAILTRAP_HOST: str = "sandbox.smtp.mailtrap.io"
+    MAILTRAP_PORT: int = 2525
+    MAILTRAP_USERNAME: str
+    MAILTRAP_PASSWORD: str
+    MAIL_FROM: str = "noreply@pcos-app.test"
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,

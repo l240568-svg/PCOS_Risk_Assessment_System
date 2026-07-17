@@ -38,3 +38,41 @@ def login_doctor(
         "access_token": access_token,
         "token_type": "bearer",
     }
+
+@router.post(
+    "/forgot-password",
+    status_code=status.HTTP_200_OK,
+)
+def forgot_password(
+    request: schemas.ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    service.forgot_password(db, request.email)
+    return {"message": "If an account exists with this email, "
+            "an OTP has been sent."}
+    
+    
+@router.post(
+    "/verify-otp",
+    response_model=schemas.OTPVerificationResponse,
+)
+def verify_otp(
+    request: schemas.OTPVerificationRequest,
+    db: Session = Depends(get_db),
+):
+    reset_token = service.verify_otp(db,request.email, request.otp)
+    return {
+        "reset_token": reset_token,
+        "token_type": "bearer",
+    }
+
+@router.patch(
+    "/reset-password",
+    status_code=status.HTTP_200_OK,
+)
+def reset_password(
+    request: schemas.ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    service.reset_password(db, request.reset_token, request.new_password)
+    return {"message": "Password has been reset successfully."}

@@ -5,18 +5,18 @@ from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
+import secrets
 
 settings = get_settings()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+def hash_value(string: str) -> str:
+    return pwd_context.hash(string)
 
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
 
-
-def verify_password(plain_password: str, password_hash: str) -> bool:
-    return pwd_context.verify(plain_password, password_hash)
+def verify_hash(plain_text: str, hash: str) -> bool:
+    return pwd_context.verify(plain_text, hash)
 
 
 def create_access_token(data: dict) -> str:
@@ -65,6 +65,12 @@ def validate_password_strength(password: str) -> None:
 
     if not any(character in special_characters for character in password):
         raise ValueError("Password must contain at least one special character")    
-        raise ValueError("Password must contain at least one special character")    
+        
     
-def generate_OTP
+#OTP 
+def generate_OTP() -> str:
+    #Generate a 6-digit OTP code
+    return f"{secrets.randbelow(1000000):06d}"
+
+def otp_expiration_time(minutes: int = 5) -> datetime:
+    return datetime.now(timezone.utc) + timedelta(minutes=minutes)
