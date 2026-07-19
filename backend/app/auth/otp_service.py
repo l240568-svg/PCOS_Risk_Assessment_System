@@ -2,7 +2,7 @@ from enum import Enum
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from app.auth.models import OTPCode
-from backend.app.auth.utils import hash_value
+from app.auth.utils import hash_value
 
 class OTPPurpose(str, Enum):
     PASSWORD_RESET = "PASSWORD_RESET"

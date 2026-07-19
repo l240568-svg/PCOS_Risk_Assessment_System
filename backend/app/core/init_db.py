@@ -1,4 +1,4 @@
-from core.database import engine
+from app.core.database import engine
 from app.auth.models import OTPCode
 
 def create_otp_table() -> None:

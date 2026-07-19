@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.auth import schemas, service
 from app.core.dependencies import get_db
@@ -23,21 +24,26 @@ def register_doctor(
 ):
     return service.register_doctor(db, doctor_data)
 
-
 @router.post(
     "/login",
     response_model=schemas.TokenResponse,
 )
 def login_doctor(
-    login_data: schemas.LoginRequest,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
+    login_data = schemas.LoginRequest(
+        email=form_data.username,
+        password=form_data.password,
+    )
+
     access_token = service.login_doctor(db, login_data)
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
     }
+
 
 @router.post(
     "/forgot-password",
