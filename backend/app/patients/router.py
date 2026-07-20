@@ -64,3 +64,28 @@ def delete_patient(
     current_doctor: User = Depends(get_current_doctor),
 ):
     service.delete_patient(db, patient_id, current_doctor)
+
+
+@router.get(
+    "/{patient_id}",
+    response_model=schemas.PatientResponse,
+)
+def get_patient_detail(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current_doctor: User = Depends(get_current_doctor),
+):
+    return service.get_patient_detail(db, patient_id, current_doctor)
+
+
+@router.patch(
+    "/{patient_id}",
+    response_model=schemas.PatientResponse,
+)
+def update_patient(
+    patient_id: int,
+    patient_data: schemas.PatientUpdateRequest,
+    db: Session = Depends(get_db),
+    current_doctor: User = Depends(get_current_doctor),
+):
+    return service.update_patient(db, patient_id, patient_data, current_doctor)    

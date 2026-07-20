@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.assessments.models import Assessment, AssessmentResult
 from app.patients.models import Patient
-from app.patients.schemas import PatientCreateRequest
+from app.patients.schemas import PatientCreateRequest,PatientUpdateRequest
 from app.users.models import User
 
 
@@ -103,3 +103,51 @@ def search_patients(
         query.order_by(Patient.created_at.desc(), Patient.patient_id.desc())
         .all()
     )
+
+def get_patient_detail(
+    db: Session,
+    patient_id: int,
+    current_doctor: User,
+) -> Patient:
+    patient = (
+        db.query(Patient)
+        .filter(
+            Patient.patient_id == patient_id,
+            Patient.doctor_id == current_doctor.user_id,
+        )
+        .first()
+    )
+
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Patient not found",
+        )
+
+    return patient
+
+
+def update_patient(
+    db: Session,
+    patient_id: int,
+    patient_data: PatientUpdateRequest,
+    current_doctor: User,
+) -> Patient:
+    patient = get_patient_detail(db, patient_id, current_doctor)
+
+    update_data = patient_data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(patient, field, value)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Patient email already exists",
+        )
+
+    db.refresh(patient)
+    return patient
