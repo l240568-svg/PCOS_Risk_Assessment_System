@@ -1,5 +1,5 @@
 from app.core.database import engine
-from app.auth.models import OTPCode
+from app.auth.models import OTPCode, RevokedToken
 
 def create_otp_table() -> None:
     OTPCode.__table__.create(
@@ -8,5 +8,8 @@ def create_otp_table() -> None:
     )
 
 
-if __name__ == "__main__":
-    create_otp_table()
+def create_revoked_tokens_table() -> None:
+    RevokedToken.__table__.create(
+        bind=engine,
+        checkfirst=True,
+    )

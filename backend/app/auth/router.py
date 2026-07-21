@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.auth import schemas, service
-from app.core.dependencies import get_db
+from app.core.dependencies import get_db, oauth2_scheme
 from app.users.schemas import UserResponse
 
 
@@ -82,3 +82,19 @@ def reset_password(
 ):
     service.reset_password(db, request.reset_token, request.new_password)
     return {"message": "Password has been reset successfully."}
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+)
+def logout(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    service.logout_user(
+        db=db,
+        token=token,
+    )
+
+    return {"message": "Logout successful"}

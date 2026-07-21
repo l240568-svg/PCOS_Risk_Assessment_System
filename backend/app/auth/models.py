@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Identity, String, func
+from sqlalchemy import Boolean, DateTime, Identity, PrimaryKeyConstraint, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
 
 
 class OTPCode(Base):
@@ -48,3 +49,32 @@ class OTPCode(Base):
         server_default=func.now(),
         nullable=False,
     )
+    
+    reset_completed_at: Mapped[datetime | None] = mapped_column(
+    DateTime(timezone=True),
+    nullable=True,
+    )
+    
+    
+class RevokedToken(Base):
+    __tablename__ = "revoked_tokens"
+    
+    #unique identifier for the JWT token
+    jti: Mapped[str] = mapped_column(
+        String(64),
+        unique=True,
+        nullable=False,
+        primary_key=True,
+    )
+
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    revoked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+   

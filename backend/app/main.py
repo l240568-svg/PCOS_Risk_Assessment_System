@@ -3,7 +3,10 @@ from fastapi import FastAPI
 from app.auth.router import router as auth_router
 from app.patients.router import router as patients_router
 from app.users.router import router as users_router
+from app.core.init_db import create_otp_table, create_revoked_tokens_table
 
+create_otp_table()
+create_revoked_tokens_table()
 
 app = FastAPI(title="PCOS Risk Assessment API")
 
@@ -16,8 +19,7 @@ app.include_router(patients_router)
 app.include_router(users_router)
 
 
-@app.get("/")
-def root():
-    return {"message": "PCOS Risk Assessment API is running"}
+
+
 
  

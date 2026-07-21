@@ -19,6 +19,27 @@ def verify_hash(plain_text: str, hash: str) -> bool:
     return pwd_context.verify(plain_text, hash)
 
 
+def create_access_token(data: dict) -> str:
+    expire_time = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+
+    payload = data.copy()
+    payload.update({"exp": expire_time})
+    
+    payload.update({
+        "exp": expire_time,
+        "jti": secrets.token_urlsafe(32),
+    })
+
+    token = jwt.encode(
+        payload,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
+
+    return token
+
 
 def decode_access_token(token: str) -> dict | None:
     try:

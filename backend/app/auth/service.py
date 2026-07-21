@@ -1,4 +1,7 @@
 
+import datetime
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -8,6 +11,10 @@ from app.users.models import User
 from app.auth.otp_service import create_otp_record, get_latest_valid_otp, mark_otp_as_used
 from app.emails.email_service import send_otp_email
 from app.auth.otp_service import OTPPurpose
+from app.auth.models import OTPCode
+from app.auth.models import RevokedToken
+
+
 
 
 def register_doctor(db: Session, doctor_data: RegisterRequest) -> User:
@@ -83,6 +90,7 @@ def login_doctor(db: Session, login_data: LoginRequest) -> str:
         data={
             "sub": str(doctor.user_id),
             "email": doctor.email,
+            "token_type": "access"
         }
     )
 
@@ -131,10 +139,13 @@ def verify_otp(
 
     return create_access_token(
         data={
+            "otp_id": otp_record.otp_id,
             "sub": email,
             "purpose": OTPPurpose.PASSWORD_RESET.value,
+            "token_type": "password_reset"
         }
     )
+    
 def reset_password(
     db: Session,
     reset_token: str,
@@ -153,15 +164,36 @@ def reset_password(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid reset token",
         )
-
+    
+    otp_id = payload.get("otp_id")
     email = payload.get("sub")
 
-    if not email:
+    if not email or not otp_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid reset token",
         )
 
+    otp_record = (
+        db.query(OTPCode)
+        .filter(
+            OTPCode.otp_id == otp_id,
+            OTPCode.email == email,
+            OTPCode.purpose == OTPPurpose.PASSWORD_RESET.value,
+            OTPCode.is_used.is_(True),
+        )
+        .with_for_update()
+        .first()
+    )
+
+    if not otp_record or otp_record.reset_completed_at is not None:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Reset token has already been used or is invalid",
+        )
+    
     user = (
         db.query(User)
         .filter(User.email == email)
@@ -169,18 +201,70 @@ def reset_password(
     )
 
     if not user:
+        db.rollback()
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
 
     try:
-        validate_password_strength(new_password)
-    except ValueError as error:
+        user.password_hash = hash_value(new_password)
+        
+        otp_record.reset_completed_at = datetime.now(timezone.utc)
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+    
+    
+  
+
+def logout_user(
+    db: Session,
+    token: str,
+) -> None:
+    payload = decode_access_token(token)
+
+    if not payload:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error),
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
         )
 
-    user.password_hash = hash_value(new_password)
+    if payload.get("token_type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid access token",
+        )
+
+    jti = payload.get("jti")
+    expiration = payload.get("exp")
+
+    if not jti or not expiration:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    already_revoked = (
+        db.query(RevokedToken)
+        .filter(RevokedToken.jti == jti)
+        .first()
+    )
+
+    if already_revoked:
+       return
+
+    revoked_token = RevokedToken(
+        jti=jti,
+        expires_at=datetime.fromtimestamp(
+            expiration,
+            tz=timezone.utc,
+        ),
+    )
+
+    db.add(revoked_token)
     db.commit()
