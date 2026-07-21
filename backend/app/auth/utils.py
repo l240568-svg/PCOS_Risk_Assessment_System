@@ -18,44 +18,44 @@ def hash_value(string: str) -> str:
 def verify_hash(plain_text: str, hash: str) -> bool:
     return pwd_context.verify(plain_text, hash)
 
-def create_access_token(data: dict) -> str:
-    expire_time = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
-    payload = data.copy()
-    payload.update({"exp": expire_time})
-
-    token = jwt.encode(
-    payload,
-    settings.SECRET_KEY,
-    algorithm=settings.ALGORITHM,
-    )
-
-    return token
-
-def create_access_token(data: dict) -> str:
-    expire_time = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
+def create_token(
+    data: dict,
+    lifetime: timedelta,
+) -> str:
+    now = datetime.now(timezone.utc)
 
     payload = data.copy()
-    payload.update({"exp": expire_time})
-    
     payload.update({
-        "exp": expire_time,
+        "iat": now,
+        "exp": now + lifetime,
         "jti": secrets.token_urlsafe(32),
     })
 
-    token = jwt.encode(
+    return jwt.encode(
         payload,
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM,
     )
 
-    return token
+
+def create_access_token(data: dict) -> str:
+    return create_token(
+        data=data,
+        lifetime=timedelta(
+            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        ),
+    )
 
 
-def decode_access_token(token: str) -> dict | None:
+def create_refresh_token(data: dict) -> str:
+    return create_token(
+        data=data,
+        lifetime=timedelta(
+            days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+        ),
+    )
+
+def decode_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(
             token,

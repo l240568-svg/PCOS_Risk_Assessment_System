@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from app.auth.utils import decode_access_token
+from app.auth.utils import decode_token
 from app.core.database import SessionLocal
 from app.users.models import User
 from app.auth.models import RevokedToken
@@ -26,7 +26,7 @@ def get_current_doctor(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    payload = decode_access_token(token)
+    payload = decode_token(token)
 
 
     if payload is None or payload.get("token_type") != "access":

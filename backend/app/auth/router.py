@@ -37,10 +37,11 @@ def login_doctor(
         password=form_data.password,
     )
 
-    access_token = service.login_doctor(db, login_data)
+    access_token, refresh_token = service.login_doctor(db, login_data)
 
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
     }
 
@@ -98,3 +99,23 @@ def logout(
     )
 
     return {"message": "Logout successful"}
+
+
+@router.post(
+    "/refresh",
+    response_model=schemas.TokenResponse,
+)
+def refresh_token(
+    request: schemas.RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    access_token, refresh_token = service.refresh_tokens(
+        db=db,
+        encoded_refresh_token=request.refresh_token,
+    )
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }

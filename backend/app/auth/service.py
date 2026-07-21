@@ -1,18 +1,19 @@
 
 import datetime
 from datetime import datetime, timezone
+import secrets
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import LoginRequest, RegisterRequest, OTPVerificationRequest
-from app.auth.utils import create_access_token, hash_value, validate_password_strength, verify_hash, generate_OTP, otp_expiration_time, decode_access_token
+from app.auth.utils import create_access_token,create_refresh_token, hash_value, validate_password_strength, verify_hash, generate_OTP, otp_expiration_time, decode_token
 from app.users.models import User
 from app.auth.otp_service import create_otp_record, get_latest_valid_otp, mark_otp_as_used
 from app.emails.email_service import send_otp_email
 from app.auth.otp_service import OTPPurpose
 from app.auth.models import OTPCode
-from app.auth.models import RevokedToken
+from app.auth.models import RevokedToken, RefreshToken
 
 
 
@@ -70,31 +71,67 @@ def register_doctor(db: Session, doctor_data: RegisterRequest) -> User:
     return new_doctor
 
 
-def login_doctor(db: Session, login_data: LoginRequest) -> str:
-    doctor = db.query(User).filter(User.email == login_data.email).first()
+def login_doctor(
+    db: Session,
+    login_data: LoginRequest,
+) -> tuple[str, str]:
+    doctor = (
+        db.query(User)
+        .filter(User.email == login_data.email)
+        .first()
+    )
 
-    if not doctor:
+    if not doctor or not verify_hash(
+        login_data.password,
+        doctor.password_hash,
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
+    family_id = secrets.token_urlsafe(32)
 
-    if not verify_hash(login_data.password, doctor.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
+    refresh_token = create_refresh_token(
+        data={
+            "sub": str(doctor.user_id),
+            "token_type": "refresh",
+            "family_id": family_id,
+        }
+    )
+
+    refresh_payload = decode_token(refresh_token)
+
+    refresh_jti = refresh_payload["jti"]
+    refresh_expiration = datetime.fromtimestamp(
+        refresh_payload["exp"],
+        tz=timezone.utc,
+    )
 
     access_token = create_access_token(
         data={
             "sub": str(doctor.user_id),
             "email": doctor.email,
-            "token_type": "access"
+            "token_type": "access",
+            "refresh_jti": refresh_jti,
         }
     )
 
-    return access_token
+    refresh_record = RefreshToken(
+        jti=refresh_jti,
+        family_id=family_id,
+        user_id=doctor.user_id,
+        expires_at=refresh_expiration,
+    )
+
+    try:
+        db.add(refresh_record)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return access_token, refresh_token
 
 
 def forgot_password(db: Session, email: str):
@@ -151,7 +188,7 @@ def reset_password(
     reset_token: str,
     new_password: str,
 ) -> None:
-    payload = decode_access_token(reset_token)
+    payload = decode_token(reset_token)
 
     if not payload:
         raise HTTPException(
@@ -226,7 +263,7 @@ def logout_user(
     db: Session,
     token: str,
 ) -> None:
-    payload = decode_access_token(token)
+    payload = decode_token(token)
 
     if not payload:
         raise HTTPException(
@@ -241,6 +278,7 @@ def logout_user(
         )
 
     jti = payload.get("jti")
+    refresh_jti = payload.get("refresh_jti")
     expiration = payload.get("exp")
 
     if not jti or not expiration:
@@ -267,4 +305,157 @@ def logout_user(
     )
 
     db.add(revoked_token)
+    
+    if refresh_jti:
+     refresh_record = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.jti == refresh_jti)
+        .first()
+    )
+
+    if refresh_record and refresh_record.revoked_at is None:
+        refresh_record.revoked_at = datetime.now(timezone.utc)
     db.commit()
+    
+    
+def refresh_tokens(
+    db: Session,
+    encoded_refresh_token: str,
+) -> tuple[str, str]:
+    payload = decode_token(encoded_refresh_token)
+
+    if not payload or payload.get("token_type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+
+    jti = payload.get("jti")
+    subject = payload.get("sub")
+    family_id = payload.get("family_id")
+
+    if not jti or not subject or not family_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+    try:
+        user_id = int(subject)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+    now = datetime.now(timezone.utc)
+
+    refresh_record = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.jti == jti)
+        .with_for_update()
+        .first()
+    )
+
+    if not refresh_record:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+    if (
+        refresh_record.user_id != user_id
+        or refresh_record.family_id != family_id
+    ):
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+    if refresh_record.revoked_at is not None:
+        # A rotated token was reused. Revoke the active family.
+        if refresh_record.replaced_by_jti is not None:
+            db.query(RefreshToken).filter(
+                RefreshToken.family_id == family_id,
+                RefreshToken.revoked_at.is_(None),
+            ).update(
+                {"revoked_at": now},
+                synchronize_session=False,
+            )
+            db.commit()
+        else:
+            db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has already been used or revoked",
+        )
+
+    if refresh_record.expires_at <= now:
+        refresh_record.revoked_at = now
+        db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has expired",
+        )
+
+    doctor = (
+        db.query(User)
+        .filter(User.user_id == user_id)
+        .first()
+    )
+
+    if not doctor:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User no longer exists",
+        )
+
+    new_refresh_token = create_refresh_token(
+        data={
+            "sub": str(doctor.user_id),
+            "token_type": "refresh",
+            "family_id": family_id,
+        }
+    )
+
+    new_payload = decode_token(new_refresh_token)
+    new_jti = new_payload["jti"]
+
+    new_record = RefreshToken(
+        jti=new_jti,
+        family_id=family_id,
+        user_id=doctor.user_id,
+        expires_at=datetime.fromtimestamp(
+            new_payload["exp"],
+            tz=timezone.utc,
+        ),
+    )
+
+    new_access_token = create_access_token(
+        data={
+            "sub": str(doctor.user_id),
+            "email": doctor.email,
+            "token_type": "access",
+            "refresh_jti": new_jti,
+        }
+    )
+
+    refresh_record.revoked_at = now
+    refresh_record.replaced_by_jti = new_jti
+
+    try:
+        db.add(new_record)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return new_access_token, new_refresh_token
