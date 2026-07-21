@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth.utils import decode_access_token
 from app.core.database import SessionLocal
 from app.users.models import User
+from app.auth.models import RevokedToken
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -27,11 +28,31 @@ def get_current_doctor(
 ) -> User:
     payload = decode_access_token(token)
 
-    if payload is None:
+
+    if payload is None or payload.get("token_type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
         )
+    
+    jti = payload.get("jti")
+    if jti is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+        
+    is_revoked = (
+    db.query(RevokedToken)
+    .filter(RevokedToken.jti == jti)
+    .first()
+    )
+    
+    if is_revoked:
+     raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token has been revoked",
+    )
 
     doctor_id = payload.get("sub")
 

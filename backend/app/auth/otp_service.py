@@ -43,15 +43,17 @@ def get_latest_valid_otp(
     
 def mark_otp_as_used(
     db: Session,
-    email: str,
-    purpose: OTPPurpose
-):
-    otp_record = db.query(OTPCode).filter(
-        OTPCode.email == email,
-        OTPCode.purpose == purpose,
-        OTPCode.is_used == False
-    ).first()
+    otp_id: int,
+) -> None:
+    otp_record = (
+        db.query(OTPCode)
+        .filter(
+            OTPCode.otp_id == otp_id,
+            OTPCode.is_used.is_(False),
+        )
+        .first()
+    )
+
     if otp_record:
         otp_record.is_used = True
-        db.refresh(otp_record)
         db.commit()
