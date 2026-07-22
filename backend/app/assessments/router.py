@@ -64,3 +64,21 @@ def delete_assessment(
         assessment_id=assessment_id,
         current_doctor=current_doctor,
     )
+    
+@router.post(
+    "/",
+    response_model=schemas.AssessmentWithResultResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_assessment(
+    patient_id: int,
+    assessment_data: schemas.AssessmentCreateRequest,
+    db: Session = Depends(get_db),
+    current_doctor: User = Depends(get_current_doctor),
+):
+    return service.create_assessment(
+        db=db,
+        patient_id=patient_id,
+        data=assessment_data,
+        current_doctor=current_doctor,
+    )

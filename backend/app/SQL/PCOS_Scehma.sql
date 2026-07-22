@@ -69,6 +69,7 @@ CREATE TABLE patients (
 
 
 
+
 -- =====================
 -- ASSESSMENTS
 -- =====================
@@ -178,3 +179,8 @@ CREATE TABLE assessment_results (
         )
 
 );
+
+ALTER TABLE assessments
+ADD COLUMN hair_loss BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN pimples BOOLEAN NOT NULL DEFAULT FALSE;
+

@@ -31,6 +31,9 @@ class Assessment(Base):
     weight_gain: Mapped[bool] = mapped_column(Boolean, nullable=False)
     hair_growth: Mapped[bool] = mapped_column(Boolean, nullable=False)
     skin_darkening: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    hair_loss: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    pimples: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    
     fast_food: Mapped[bool] = mapped_column(Boolean, nullable=False)
     regular_exercise: Mapped[bool] = mapped_column(Boolean, nullable=False)
 

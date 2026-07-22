@@ -5,6 +5,12 @@ from app.assessments.models import Assessment, AssessmentResult
 from app.patients.models import Patient
 from app.users.models import User
 
+from datetime import date
+from decimal import Decimal
+
+from app.assessments.features import build_model_features
+from app.assessments.schemas import AssessmentCreateRequest
+from app.ml.predictor import predict_pcos_risk
 
 def get_patient_for_current_doctor(
     db: Session,
@@ -47,6 +53,8 @@ def format_assessment_response(
         "weight_gain": assessment.weight_gain,
         "hair_growth": assessment.hair_growth,
         "skin_darkening": assessment.skin_darkening,
+        "hair_loss": assessment.hair_loss,
+        "pimples": assessment.pimples,
         "fast_food": assessment.fast_food,
         "regular_exercise": assessment.regular_exercise,
         "follicle_left": assessment.follicle_left,
@@ -142,3 +150,83 @@ def delete_assessment(
 
     db.delete(assessment)
     db.commit()
+    
+    
+def create_assessment(
+    db: Session,
+    patient_id: int,
+    data: AssessmentCreateRequest,
+    current_doctor: User,
+) -> dict:
+    patient = get_patient_for_current_doctor(
+        db=db,
+        patient_id=patient_id,
+        current_doctor=current_doctor,
+    )
+
+    assessment_date = date.today()
+
+    model_features, fsh_lh_ratio = build_model_features(
+        patient=patient,
+        data=data,
+        assessment_date=assessment_date,
+    )
+
+    try:
+        probability, prediction_class = predict_pcos_risk(
+            model_features
+        )
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PCOS prediction model is unavailable",
+        ) from error
+
+    assessment = Assessment(
+        patient_id=patient.patient_id,
+        assessment_date=assessment_date,
+        weight_kg=data.weight_kg,
+        cycle_regular=data.cycle_regular,
+        cycle_length=data.cycle_length,
+        fsh_miu_ml=data.fsh_miu_ml,
+        lh_miu_ml=data.lh_miu_ml,
+        amh_ng_ml=data.amh_ng_ml,
+        fsh_lh_ratio=fsh_lh_ratio,
+        weight_gain=data.weight_gain,
+        hair_growth=data.hair_growth,
+        skin_darkening=data.skin_darkening,
+        hair_loss=data.hair_loss,
+        pimples=data.pimples,
+        fast_food=data.fast_food,
+        regular_exercise=data.regular_exercise,
+        follicle_left=data.follicle_left,
+        follicle_right=data.follicle_right,
+    )
+
+    try:
+        db.add(assessment)
+        db.flush()
+
+        result = AssessmentResult(
+            assessment_id=assessment.assessment_id,
+            prediction_probability=Decimal(
+                str(probability)
+            ).quantize(Decimal("0.0001")),
+            prediction_class=prediction_class,
+            doctor_notes=data.doctor_notes,
+        )
+
+        db.add(result)
+        db.commit()
+
+        db.refresh(assessment)
+        db.refresh(result)
+
+    except Exception:
+        db.rollback()
+        raise
+
+    return format_assessment_response(
+        assessment=assessment,
+        result=result,
+    )

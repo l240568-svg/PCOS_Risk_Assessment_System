@@ -8,3 +8,6 @@ passlib[bcrypt]
 bcrypt==4.0.1
 python-jose[cryptography]
 python-multipart
+joblib
+pandas
+scikit-learn==1.7.2
