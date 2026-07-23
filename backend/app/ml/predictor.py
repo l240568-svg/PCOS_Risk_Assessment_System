@@ -10,7 +10,7 @@ MODEL_PATH = (
     / "pcos_clinical_model_v1.joblib"
 )
 
-
+#Singleton design pattern
 @lru_cache
 def load_model_bundle() -> dict:
     bundle = joblib.load(MODEL_PATH)
