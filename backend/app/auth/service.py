@@ -108,6 +108,7 @@ def login_doctor(
         tz=timezone.utc,
     )
 
+
     access_token = create_access_token(
         data={
             "sub": str(doctor.user_id),
@@ -116,7 +117,6 @@ def login_doctor(
             "refresh_jti": refresh_jti,
         }
     )
-
     refresh_record = RefreshToken(
         jti=refresh_jti,
         family_id=family_id,
@@ -255,7 +255,7 @@ def reset_password(
     except Exception:
         db.rollback()
         raise
-    
+   
     
   
 
