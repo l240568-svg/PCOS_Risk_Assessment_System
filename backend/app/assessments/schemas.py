@@ -33,7 +33,10 @@ class AssessmentWithResultResponse(BaseModel):
     prediction_class: str | None = None
     doctor_notes: str | None = None
     
-
+class AssessmentNotesUpdateRequest(BaseModel):
+    doctor_notes: str | None = Field(
+        max_length=5000,
+    )
 
 class AssessmentCreateRequest(BaseModel):
     weight_kg: Decimal = Field(ge=20, le=300)

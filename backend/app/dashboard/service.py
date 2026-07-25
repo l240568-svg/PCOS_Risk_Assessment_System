@@ -21,6 +21,9 @@ def build_latest_assessment_subquery(
             AssessmentResult.prediction_class.label(
                 "prediction_class"
             ),
+            AssessmentResult.doctor_notes.label(
+                 "doctor_notes"
+            ),
             func.row_number()
             .over(
                 partition_by=Assessment.patient_id,

@@ -82,3 +82,22 @@ def create_assessment(
         data=assessment_data,
         current_doctor=current_doctor,
     )
+
+@router.patch(
+    "/{assessment_id}/notes",
+    response_model=schemas.AssessmentWithResultResponse,
+)
+def update_assessment_notes(
+    patient_id: int,
+    assessment_id: int,
+    notes_data: schemas.AssessmentNotesUpdateRequest,
+    db: Session = Depends(get_db),
+    current_doctor: User = Depends(get_current_doctor),
+):
+    return service.update_assessment_notes(
+        db=db,
+        patient_id=patient_id,
+        assessment_id=assessment_id,
+        data=notes_data,
+        current_doctor=current_doctor,
+    )

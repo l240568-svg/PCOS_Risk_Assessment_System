@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-
+from fastapi.middleware.cors import CORSMiddleware
 from app.auth.router import router as auth_router
 from app.patients.router import router as patients_router
 from app.users.router import router as users_router
@@ -12,6 +12,17 @@ create_revoked_tokens_table()
 create_refresh_tokens_table()
 
 app = FastAPI(title="PCOS Risk Assessment API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get('/')
 def read_root():

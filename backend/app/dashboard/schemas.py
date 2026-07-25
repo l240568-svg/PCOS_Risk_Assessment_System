@@ -24,6 +24,7 @@ class DashboardPatientAssessment(BaseModel):
     result_id: int | None = None
     prediction_probability: Decimal | None = None
     prediction_class: str | None = None
+    doctor_notes: str | None = None
 
 
 class DashboardResponse(BaseModel):

@@ -9,7 +9,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.assessments.features import build_model_features
-from app.assessments.schemas import AssessmentCreateRequest
+from app.assessments.schemas import AssessmentCreateRequest, AssessmentNotesUpdateRequest
 from app.ml.predictor import predict_pcos_risk
 
 def get_patient_for_current_doctor(
@@ -222,6 +222,59 @@ def create_assessment(
         db.refresh(assessment)
         db.refresh(result)
 
+    except Exception:
+        db.rollback()
+        raise
+
+    return format_assessment_response(
+        assessment=assessment,
+        result=result,
+    )
+
+def update_assessment_notes(
+    db: Session,
+    patient_id: int,
+    assessment_id: int,
+    data: AssessmentNotesUpdateRequest,
+    current_doctor: User,
+) -> dict:
+    get_patient_for_current_doctor(
+        db=db,
+        patient_id=patient_id,
+        current_doctor=current_doctor,
+    )
+
+    row = (
+        db.query(Assessment, AssessmentResult)
+        .join(
+            AssessmentResult,
+            AssessmentResult.assessment_id
+            == Assessment.assessment_id,
+        )
+        .filter(
+            Assessment.patient_id == patient_id,
+            Assessment.assessment_id == assessment_id,
+        )
+        .first()
+    )
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assessment not found",
+        )
+
+    assessment, result = row
+
+    result.doctor_notes = (
+        data.doctor_notes.strip()
+        if data.doctor_notes
+        else None
+    )
+
+    try:
+        db.commit()
+        db.refresh(result)
     except Exception:
         db.rollback()
         raise
