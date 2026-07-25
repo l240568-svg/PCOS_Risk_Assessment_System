@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     MAILTRAP_USERNAME: str
     MAILTRAP_PASSWORD: str
     MAIL_FROM: str = "noreply@pcos-app.test"
+    
+    GMAIL_APP_PASSWORD: str
+    GMAIL_APP:str
+    SMTP_SERVER:str
+    GMAIL_FROM:str
+    GMAIL_PORT:int
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,

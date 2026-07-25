@@ -16,7 +16,7 @@ def send_otp_email(
 
     message = EmailMessage()
     message["Subject"] = "Your Password Reset Verification Code"
-    message["From"] = settings.MAIL_FROM
+    message["From"] = settings.GMAIL_FROM
     message["To"] = recipient_email
 
     message.set_content(
@@ -229,8 +229,8 @@ def send_otp_email(
         tls_context = ssl.create_default_context()
 
         with smtplib.SMTP(
-            settings.MAILTRAP_HOST,
-            settings.MAILTRAP_PORT,
+            settings.SMTP_SERVER,
+            settings.GMAIL_PORT,
             timeout=10,
         ) as smtp:
             smtp.ehlo()
@@ -238,8 +238,8 @@ def send_otp_email(
             smtp.ehlo()
 
             smtp.login(
-                settings.MAILTRAP_USERNAME,
-                settings.MAILTRAP_PASSWORD,
+                settings.GMAIL_APP,
+                settings.GMAIL_APP_PASSWORD,
             )
 
             smtp.send_message(message)

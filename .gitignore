@@ -10,3 +10,20 @@ venv/
 
 # Environment variables
 .env
+
+# Node.js / React
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
