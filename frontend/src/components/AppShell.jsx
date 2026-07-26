@@ -11,7 +11,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/auth-context";
 import { initials } from "../utils/formatters";
 import Logo from "./Logo";
 
