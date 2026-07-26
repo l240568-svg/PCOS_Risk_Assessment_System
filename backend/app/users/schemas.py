@@ -19,7 +19,6 @@ class UserResponse(BaseModel):
 class UserUpdateRequest(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=50)
     last_name: str | None = Field(default=None, min_length=1, max_length=50)
-    email: EmailStr | None = None
     specialization: str | None = None
     hospital: str | None = Field(default=None, max_length=100)
     clinic_address: str | None = Field(default=None, max_length=150)

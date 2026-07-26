@@ -210,7 +210,7 @@ p { color: var(--muted); line-height: 1.65; }
 .input-action { width: 40px; height: 40px; padding: 0; position: absolute; right: 2px; top: 2px; display: grid; place-items: center; border: 0; border-radius: 5px; color: #708689; background: transparent; }
 .input-action:hover { color: var(--teal-800); background: var(--teal-50); }
 .input-with-suffix > span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #74888a; font-size: 12px; }
-
+.input-readonly { color: #647776; background: #f1f5f4; cursor: not-allowed;}
 /* Application shell */
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 244px minmax(0, 1fr); background: #f4f8f8; }
 .sidebar { width: 244px; height: 100vh; padding: 24px 16px 18px; position: fixed; inset: 0 auto 0 0; z-index: 50; display: flex; flex-direction: column; color: white; background: var(--teal-950); }
