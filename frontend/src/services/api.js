@@ -2,6 +2,16 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 let refreshPromise = null;
 
+export function saveTokens(tokens){
+    localStorage.setItem("access_token", tokens.access_token);
+    localStorage.setItem("refresh_token", tokens.refresh_token);
+}
+
+export function clearTokens(){
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+}
+
 async function refreshToken() {
     const refreshToken = localStorage.getItem('refresh_token');
     if (!refreshToken) {
@@ -19,15 +29,12 @@ async function refreshToken() {
     const data = await response.json().catch(() => null);
 
     if(!response.ok){
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
+        clearTokens();
         throw new Error(data?.detail || "Session expired");
     }
     
 
-    localStorage.setItem("access_token", data.access_token);
-    localStorage.setItem("refresh_token", data.refresh_token);
-
+    saveTokens(data);
      return data.access_token;
 }
 
