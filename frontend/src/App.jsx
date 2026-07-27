@@ -11,6 +11,7 @@ import RegisterPage from "./pages/RegisterPage";
 import DoctorProfilePage from "./pages/DoctorProfilePage";
 import PatientsPage from "./pages/PatientsPage";
 import PatientProfilePage from "./pages/PatientProfilePage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 function ProtectedRoute() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -43,7 +44,11 @@ function App() {
           <Route path="/patients/:patientId" element={<PatientProfilePage />} />
         </Route>
       </Route>
+
+       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+
+    
   );
 }
 
