@@ -54,7 +54,7 @@ export default function DoctorProfilePage() {
       return;
     }
     try {
-    await apiRequest("/users/me/password", {
+  await apiRequest("/users/me/password", {
     method: "PATCH",
     body: JSON.stringify(passwords),
   });

@@ -103,10 +103,7 @@ export default function AppShell() {
           </div>
 
           <div className="topbar-actions">
-            <button className="button button-primary topbar-add" type="button" onClick={() => navigate("/patients?add=1")}>
-              <Plus size={17} />
-              <span>Add patient</span>
-            </button>
+            
 
             <div className="profile-menu" ref={profileRef}>
               <button className="profile-trigger" type="button" onClick={() => setProfileOpen((open) => !open)} aria-expanded={profileOpen}>

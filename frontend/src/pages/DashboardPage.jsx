@@ -92,7 +92,6 @@ export default function DashboardPage() {
         <div className="content-panel attention-panel">
           <div className="panel-header">
             <div><span className="panel-kicker"><HeartPulse size={15} /> Priority review</span><h2>Patients needing attention</h2></div>
-            <Link to="/patients?risk=High+Risk" className="text-link">View all <ArrowRight size={16} /></Link>
           </div>
           {attention.length ? (
             <div className="patient-row-list">{attention.map((item) => <PatientRow item={item} key={item.assessment_id} />)}</div>
@@ -113,7 +112,6 @@ export default function DashboardPage() {
       <section className="content-panel">
         <div className="panel-header">
           <div><span className="panel-kicker"><ClipboardCheck size={15} /> Latest activity</span><h2>Recently assessed</h2></div>
-          <Link to="/patients" className="text-link">All patients <ArrowRight size={16} /></Link>
         </div>
         {recent.length ? (
           <div className="patient-row-list">{recent.map((item) => <PatientRow item={item} key={item.assessment_id} />)}</div>
