@@ -1,7 +1,7 @@
 import asyncio
 import smtplib
 import ssl
-
+import base64
 from abc import ABC, abstractmethod
 from email.message import EmailMessage as MIMEEmailMessage
 from email.utils import make_msgid
@@ -56,6 +56,16 @@ class SMTPEmailProvider(EmailProvider):
             email_message.html,
             subtype="html",
         )
+        
+        for attachment in email_message.attachments:
+         maintype, subtype = attachment.content_type.split("/", 1)
+
+         mime_message.add_attachment(
+         attachment.content,
+         maintype=maintype,
+         subtype=subtype,
+         filename=attachment.filename,
+    )
 
         tls_context = ssl.create_default_context()
 
@@ -123,6 +133,17 @@ class ResendEmailProvider(EmailProvider):
 
         if email_message.text:
             params["text"] = email_message.text
+            
+        if email_message.attachments:
+           params["attachments"] = [
+         {
+            "filename": attachment.filename,
+            "content": base64.b64encode(
+                attachment.content
+            ).decode("ascii"),
+        }
+           for attachment in email_message.attachments
+           ]
 
         try:
             response = resend.Emails.send(params)

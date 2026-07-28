@@ -33,7 +33,7 @@ async function refreshToken() {
         throw new Error(data?.detail || "Session expired");
     }
     
-
+    clearTokens();
     saveTokens(data);
      return data.access_token;
 }
@@ -122,4 +122,47 @@ if (!response.ok) {
 }
 
 return data;
+}
+
+
+export async function apiBlobRequest(
+  endpoint,
+  options = {},
+  allowRefresh = true,
+) {
+  async function sendRequest(token) {
+    const headers = new Headers(options.headers || {});
+
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+
+    return fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  }
+
+  let accessToken = localStorage.getItem("access_token");
+  let response = await sendRequest(accessToken);
+
+  if (
+    response.status === 401 &&
+    allowRefresh &&
+    accessToken
+  ) {
+    accessToken = await getFreshAccessToken();
+    response = await sendRequest(accessToken);
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Failed to load PDF report",
+    );
+  }
+
+  return response.blob();
 }

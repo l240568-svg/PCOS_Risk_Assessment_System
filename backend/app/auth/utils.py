@@ -91,5 +91,5 @@ def generate_OTP() -> str:
     #Generate a 6-digit OTP code
     return f"{secrets.randbelow(1000000):06d}"
 
-def otp_expiration_time(minutes: int = 5) -> datetime:
+def otp_expiration_time(minutes: int = 1) -> datetime:
     return datetime.now(timezone.utc) + timedelta(minutes=minutes)

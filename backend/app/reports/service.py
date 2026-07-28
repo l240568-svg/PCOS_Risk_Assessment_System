@@ -2,7 +2,9 @@ from datetime import date
 from decimal import Decimal
 from io import BytesIO
 
-from fastapi import HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.assessments.models import (
@@ -12,6 +14,11 @@ from app.assessments.models import (
 from app.patients.models import Patient
 from app.reports.assessment_report import AssessmentReport
 from app.users.models import User
+from app.core.dependencies import get_current_doctor, get_db, get_db
+from app.core.dependencies import get_current_doctor
+from app.emails.dependencies import get_email_service
+from app.emails.email_service import EmailService
+from app.emails.providers import EmailDeliveryError
 
 
 def calculate_age(
@@ -156,3 +163,88 @@ def build_assessment_report(
     report = AssessmentReport()
 
     return report.build_pdf(report_data)
+
+
+async def email_assessment_report(
+    patient_id: int,
+    assessment_id: int,
+    db: Session ,
+    current_doctor: User,
+    email_service: EmailService
+):
+    pdf = build_assessment_report(
+        db=db,
+        patient_id=patient_id,
+        assessment_id=assessment_id,
+        current_doctor=current_doctor,
+    )
+    patient = (
+        db.query(Patient)
+        .filter(
+            Patient.patient_id == patient_id,
+            Patient.doctor_id == current_doctor.user_id,
+        )
+        .first()
+    )
+
+    if not patient or not patient.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Patient does not have an email address"
+            ),
+        )
+
+    patient_name = (
+        f"{patient.first_name} {patient.last_name}"
+    )
+
+    doctor_name = (
+        f"Dr. {current_doctor.first_name} "
+        f"{current_doctor.last_name}"
+    )
+
+    try:
+        await email_service.send_assessment_email(
+            recipient_email=patient.email,
+            patient_name=patient_name,
+            doctor_name=doctor_name,
+            assessment_id=assessment_id,
+            pdf_content=pdf.getvalue(),
+        )
+    except EmailDeliveryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Failed to send assessment report email"
+            ),
+        ) from exc
+
+    return {
+        "message": (
+            f"Assessment report sent to {patient.email}"
+        )
+    }
+    
+def create_pdf_response(
+    pdf: BytesIO,
+    assessment_id: int,
+    disposition: str,
+) -> StreamingResponse:
+    filename = (
+        f"pcos-assessment-report.pdf"
+    )
+
+    return StreamingResponse(
+        pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'{disposition}; filename="{filename}"'
+            ),
+            "Content-Length": str(
+                pdf.getbuffer().nbytes
+            ),
+            "Cache-Control": "no-store",
+        },
+    )

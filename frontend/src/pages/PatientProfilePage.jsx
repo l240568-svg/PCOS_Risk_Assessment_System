@@ -1,11 +1,13 @@
 import {
   Activity,
+  Eye,
   ArrowLeft,
   CalendarDays,
   ChevronDown,
   ChevronUp,
   ClipboardPlus,
   Dna,
+  Download,
   Edit3,
   Mail,
   Plus,
@@ -18,7 +20,8 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { apiRequest } from "../services/api";
+
+import { apiRequest,apiBlobRequest } from "../services/api";
 import { useToast } from "../components/ToastProvider";
 import {
   ConfirmDialog,
@@ -210,11 +213,10 @@ function ResultDrawer({ patientId, result, open, onFinish }) {
     setError("");
 
     try {
-      const updated = await apiRequest(`/patients/${patientId}/assessments/${result.assessment_id}`, {
+      const updated = await apiRequest(`/patients/${patientId}/assessments/${result.assessment_id}/notes`, {
         method: "PATCH",
         body: JSON.stringify({ doctor_notes: notes.trim() || null }),
       });
-      showToast("Doctor notes saved.");
       onFinish(updated, true);
     } catch (requestError) {
       setError(requestError.message);
@@ -263,7 +265,10 @@ function ResultDrawer({ patientId, result, open, onFinish }) {
   );
 }
 
-function AssessmentItem({ assessment, onDelete }) {
+function AssessmentItem({ patientId, assessment, onDelete }) {
+  const { showToast } = useToast();
+  const [viewingReport, setViewingReport] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const symptoms = [
     ["Weight gain", assessment.weight_gain], ["Hair growth", assessment.hair_growth],
@@ -271,6 +276,89 @@ function AssessmentItem({ assessment, onDelete }) {
     ["Pimples", assessment.pimples], ["Frequent fast food", assessment.fast_food],
     ["Regular exercise", assessment.regular_exercise],
   ];
+  async function viewReport() {
+  // Open immediately so the browser does not block it
+  // after the asynchronous fetch.
+  const reportTab = window.open("", "_blank");
+
+  if (!reportTab) {
+    showToast(
+      "Please allow pop-ups to view the PDF report.",
+      "error",
+    );
+    return;
+  }
+
+  reportTab.opener = null;
+
+  reportTab.document.body.innerHTML = `
+    <p style="font-family: Arial; padding: 24px;">
+      Loading assessment report...
+    </p>
+  `;
+
+  setViewingReport(true);
+
+  try {
+    const pdfBlob = await apiBlobRequest(
+      `/patients/${patientId}/assessments/` +
+      `${assessment.assessment_id}/report/view`,
+      {
+        method: "GET",
+      },
+    );
+
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+
+    reportTab.location.href = pdfUrl;
+
+    // Give the browser enough time to load the PDF.
+    setTimeout(() => {
+      URL.revokeObjectURL(pdfUrl);
+    }, 60_000);
+  } catch (requestError) {
+    reportTab.close();
+    showToast(requestError.message, "error");
+  } finally {
+    setViewingReport(false);
+  }
+}
+
+  async function downloadReport() {
+    setDownloadingReport(true);
+
+    try {
+      const pdfBlob = await apiBlobRequest(
+        `/patients/${patientId}/assessments/` +
+        `${assessment.assessment_id}/report/download`,
+        {
+          method: "GET",
+        },
+      );
+
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const downloadLink = document.createElement("a");
+
+      downloadLink.href = pdfUrl;
+      downloadLink.download =
+        `pcos-assessment-${assessment.assessment_id}.pdf`;
+
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+
+      setTimeout(() => {
+        URL.revokeObjectURL(pdfUrl);
+      }, 1_000);
+
+      showToast("Assessment report downloaded.");
+    } catch (requestError) {
+      showToast(requestError.message, "error");
+    } finally {
+      setDownloadingReport(false);
+    }
+  }
+
   return (
     <article className="assessment-item">
       <button className="assessment-summary" type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
@@ -283,7 +371,25 @@ function AssessmentItem({ assessment, onDelete }) {
         <dl className="details-grid"><div><dt>Weight</dt><dd>{assessment.weight_kg} kg</dd></div><div><dt>Cycle</dt><dd>{assessment.cycle_regular ? "Regular" : "Irregular"}, {assessment.cycle_length} days</dd></div><div><dt>FSH / LH</dt><dd>{assessment.fsh_miu_ml} / {assessment.lh_miu_ml}</dd></div><div><dt>FSH/LH ratio</dt><dd>{assessment.fsh_lh_ratio ?? "Not available"}</dd></div><div><dt>AMH</dt><dd>{assessment.amh_ng_ml ? `${assessment.amh_ng_ml} ng/mL` : "Not recorded"}</dd></div><div><dt>Follicles</dt><dd>{assessment.follicle_left} left · {assessment.follicle_right} right</dd></div></dl>
         <div className="symptom-tags">{symptoms.map(([label, value]) => <span className={value ? "active" : ""} key={label}>{label}: {value ? "Yes" : "No"}</span>)}</div>
         {assessment.doctor_notes && <div className="doctor-note"><strong>Doctor notes</strong><p>{assessment.doctor_notes}</p></div>}
-        <div className="assessment-actions"><button className="button button-danger-subtle" type="button" onClick={() => onDelete(assessment)}><Trash2 size={16} /> Delete assessment</button></div>
+        <div className="assessment-actions">
+          <button className="button button-secondary" type="button" onClick={viewReport} disabled={viewingReport}>
+            {viewingReport ? <Spinner label="Loading report" /> : <Eye size={16} />} View report
+          </button>
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={downloadReport}
+            disabled={downloadingReport}
+          >
+            {downloadingReport ? (
+              <Spinner label="Downloading report" />
+            ) : (
+              <Download size={16} />
+            )}
+            Download report
+          </button>
+          <button className="button button-danger-subtle" type="button" onClick={() => onDelete(assessment)}><Trash2 size={16} /> Delete assessment</button>
+        </div>
       </div>}
     </article>
   );
@@ -358,7 +464,57 @@ export default function PatientProfilePage() {
         <section className="danger-zone"><div><strong>Delete patient record</strong><p>This permanently removes the patient and all associated assessments.</p></div><button className="button button-danger-subtle" type="button" onClick={() => setConfirm({ type: "patient" })}><Trash2 size={16} /> Delete patient</button></section>
       </div>}
 
-      {activeTab === "assessments" && <section className="content-panel"><div className="panel-header"><div><span className="panel-kicker"><Stethoscope size={15} /> Clinical history</span><h2>Assessment history</h2></div><button className="button button-primary" type="button" onClick={() => setAssessmentOpen(true)}><Plus size={16} /> New assessment</button></div>{assessments.length ? <div className="assessment-list">{assessments.map((assessment) => <AssessmentItem assessment={assessment} onDelete={(item) => setConfirm({ type: "assessment", id: item.assessment_id })} key={assessment.assessment_id} />)}</div> : <EmptyState title="No assessments yet" message="Add the first clinical assessment to create a risk result and patient history." action={<button className="button button-primary" type="button" onClick={() => setAssessmentOpen(true)}><Plus size={17} /> Add assessment</button>} />}</section>}
+      {activeTab === "assessments" && (
+        <section className="content-panel">
+          <div className="panel-header">
+            <div>
+              <span className="panel-kicker">
+                <Stethoscope size={15} /> Clinical history
+              </span>
+              <h2>Assessment history</h2>
+            </div>
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={() => setAssessmentOpen(true)}
+            >
+              <Plus size={16} /> New assessment
+            </button>
+          </div>
+
+          {assessments.length ? (
+            <div className="assessment-list">
+              {assessments.map((assessment) => (
+                <AssessmentItem
+                  key={assessment.assessment_id}
+                  patientId={patient.patient_id}
+                  assessment={assessment}
+                  onDelete={(item) =>
+                    setConfirm({
+                      type: "assessment",
+                      id: item.assessment_id,
+                    })
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No assessments yet"
+              message="Add the first clinical assessment to create a risk result and patient history."
+              action={
+                <button
+                  className="button button-primary"
+                  type="button"
+                  onClick={() => setAssessmentOpen(true)}
+                >
+                  <Plus size={17} /> Add assessment
+                </button>
+              }
+            />
+          )}
+        </section>
+      )}
 
       <EditPatientDrawer patient={patient} open={editOpen} onClose={() => setEditOpen(false)} onUpdated={(updated) => { setPatient(updated); setEditOpen(false); }} />
       <AssessmentDrawer patient={patient} open={assessmentOpen} onClose={() => setAssessmentOpen(false)} onCreated={(created) => { setAssessments((current) => [created, ...current]); setAssessmentOpen(false); setResult(created); showToast("Risk evaluation complete."); }} />

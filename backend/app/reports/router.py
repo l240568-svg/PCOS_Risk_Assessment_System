@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,11 @@ from app.core.dependencies import (
 )
 from app.reports import service
 from app.users.models import User
+from app.emails.dependencies import get_email_service
+from app.emails.email_service import EmailService
+from app.emails.providers import EmailDeliveryError
+from app.patients.models import Patient
+
 
 
 router = APIRouter(
@@ -21,28 +26,6 @@ router = APIRouter(
 )
 
 
-def create_pdf_response(
-    pdf: BytesIO,
-    assessment_id: int,
-    disposition: str,
-) -> StreamingResponse:
-    filename = (
-        f"pcos-assessment-{assessment_id}.pdf"
-    )
-
-    return StreamingResponse(
-        pdf,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": (
-                f'{disposition}; filename="{filename}"'
-            ),
-            "Content-Length": str(
-                pdf.getbuffer().nbytes
-            ),
-            "Cache-Control": "no-store",
-        },
-    )
 
 
 @router.get("/view")
@@ -61,7 +44,7 @@ def view_assessment_report(
         current_doctor=current_doctor,
     )
 
-    return create_pdf_response(
+    return service.create_pdf_response(
         pdf=pdf,
         assessment_id=assessment_id,
         disposition="inline",
@@ -84,8 +67,26 @@ def download_assessment_report(
         current_doctor=current_doctor,
     )
 
-    return create_pdf_response(
+    return service.create_pdf_response(
         pdf=pdf,
         assessment_id=assessment_id,
         disposition="attachment",
     )
+    
+@router.post("/send-report")
+async def send_assessment_report(
+  patient_id: int,
+  assesment_id: int,
+  db: Session = Depends(get_db),
+  current_doctor: User = Depends(get_current_doctor),
+  EmailService: EmailService = Depends(get_email_service)  
+):
+    return await service.email_assessment_report(
+        patient_id=patient_id,
+        assessment_id=assesment_id,
+        db=db,
+        current_doctor=current_doctor,
+        email_service=EmailService
+    )
+    
+     
