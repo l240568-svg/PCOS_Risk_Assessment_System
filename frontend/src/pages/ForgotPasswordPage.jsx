@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
     }
     setSubmitting(true);
     try {
-      await apiRequest("/auth/reset-password", { method: "POST", body: { reset_token: resetToken, password: passwords.password } });
+      await apiRequest("/auth/reset-password", { method: "PATCH", body: { reset_token: resetToken, new_password: passwords.password } });
       navigate("/login", { replace: true, state: { passwordReset: true } });
     } catch (requestError) { setError(requestError.message); }
     finally { setSubmitting(false); }

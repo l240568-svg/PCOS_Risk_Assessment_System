@@ -12,3 +12,4 @@ joblib
 pandas
 scikit-learn==1.7.2
 reportlab
+resend

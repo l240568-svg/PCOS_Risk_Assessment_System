@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
+    EMAIL_PROVIDER: str
+    
     MAILTRAP_HOST: str = "sandbox.smtp.mailtrap.io"
     MAILTRAP_PORT: int = 2525
     MAILTRAP_USERNAME: str
@@ -34,6 +36,9 @@ class Settings(BaseSettings):
     SMTP_SERVER:str
     GMAIL_FROM:str
     GMAIL_PORT:int
+    
+    RESEND_API_KEY: str
+    RESEND_FROM: str
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,

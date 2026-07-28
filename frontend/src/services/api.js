@@ -51,22 +51,44 @@ function getFreshAccessToken() {
 
 export async function apiRequest(endpoint, options = {}, allowRefresh = true)
 {
- async function sendRequest(token){
-   const headers = new Headers(options.headers || {});
+ async function sendRequest(token) {
+  const headers = new Headers(options.headers || {});
 
-   if (!(options.body instanceof FormData)) {
-    headers.set("content-type", "application/json");
-   }
+  const originalBody = options.body;
 
-   if (token) {
+  const isFormData = originalBody instanceof FormData;
+
+  const isJsonObject =
+    originalBody !== null &&
+    originalBody !== undefined &&
+    (
+      Array.isArray(originalBody) ||
+      Object.prototype.toString.call(originalBody) === "[object Object]"
+    );
+
+  const requestBody = isJsonObject
+    ? JSON.stringify(originalBody)
+    : originalBody;
+
+  if (
+    !isFormData &&
+    requestBody !== null &&
+    requestBody !== undefined &&
+    !headers.has("Content-Type")
+  ) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (token) {
     headers.set("Authorization", `Bearer ${token}`);
-   }
+  }
 
-   return fetch(`${API_BASE_URL}${endpoint}`, {
+  return fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
-   });
- }
+    body: requestBody,
+  });
+}
 
  let accessToken = localStorage.getItem("access_token");
  let response = await sendRequest(accessToken);
@@ -78,9 +100,26 @@ export async function apiRequest(endpoint, options = {}, allowRefresh = true)
 
  const data = await response.json().catch(() => null);
 
-  if (!response.ok) {
-    throw new Error(data?.detail || "Request failed");
+if (!response.ok) {
+  const detail = data?.detail;
+
+  if (typeof detail === "string") {
+    throw new Error(detail);
   }
 
-  return data;
+  if (Array.isArray(detail)) {
+    const message = detail
+      .map((error) => {
+        const field = error.loc?.at(-1) || "request";
+        return `${field}: ${error.msg}`;
+      })
+      .join("; ");
+
+    throw new Error(message);
+  }
+
+  throw new Error("Request failed");
+}
+
+return data;
 }

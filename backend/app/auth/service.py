@@ -10,11 +10,12 @@ from app.auth.schemas import LoginRequest, RegisterRequest, OTPVerificationReque
 from app.auth.utils import create_access_token,create_refresh_token, hash_value, validate_password_strength, verify_hash, generate_OTP, otp_expiration_time, decode_token
 from app.users.models import User
 from app.auth.otp_service import create_otp_record, get_latest_valid_otp, mark_otp_as_used
-from app.emails.email_service import send_otp_email
 from app.auth.otp_service import OTPPurpose
 from app.auth.models import OTPCode
 from app.auth.models import RevokedToken, RefreshToken
 
+from app.emails.email_service import EmailService
+from app.emails.providers import EmailDeliveryError
 
 
 
@@ -134,23 +135,28 @@ def login_doctor(
     return access_token, refresh_token
 
 
-def forgot_password(db: Session, email: str):
-    user = db.query(User).filter(User.email == email).first()
+async def forgot_password(db: Session,email: str, email_service: EmailService) -> None:
+    user = (
+        db.query(User)
+        .filter(User.email == email)
+        .first()
+    )
 
     if not user:
-        return;
-    
+        return
+
     otp = generate_OTP()
     otp_expiration = otp_expiration_time()
-    otp_record = create_otp_record(db, email, otp, otp_expiration)
-    
+
+    create_otp_record( db, email, otp, otp_expiration,)
+
     try:
-        send_otp_email(email, otp)
-    except RuntimeError as e:
+        await email_service.send_otp_email( recipient_email=email, otp=otp,)
+    except EmailDeliveryError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to send OTP email: {str(e)}",
-        ) 
+            detail=f"Failed to send OTP email: {exc}",
+        ) from exc
     
 def verify_otp(
     db: Session,

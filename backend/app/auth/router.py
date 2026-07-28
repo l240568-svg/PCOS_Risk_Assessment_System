@@ -6,6 +6,8 @@ from app.auth import schemas, service
 from app.core.dependencies import get_db, oauth2_scheme
 from app.users.schemas import UserResponse
 
+from app.emails.dependencies import get_email_service
+from app.emails.email_service import EmailService
 
 router = APIRouter(
     prefix="/auth",
@@ -50,14 +52,23 @@ def login_doctor(
     "/forgot-password",
     status_code=status.HTTP_200_OK,
 )
-def forgot_password(
+async def forgot_password(
     request: schemas.ForgotPasswordRequest,
     db: Session = Depends(get_db),
+    email_service: EmailService = Depends(get_email_service),
 ):
-    service.forgot_password(db, request.email)
-    return {"message": "If an account exists with this email, "
-            "an OTP has been sent."}
-    
+    await service.forgot_password(
+        db=db,
+        email=request.email,
+        email_service=email_service,
+    )
+
+    return {
+        "message": (
+            "If an account exists with this email, "
+            "an OTP has been sent."
+        )
+    }
     
 @router.post(
     "/verify-otp",
