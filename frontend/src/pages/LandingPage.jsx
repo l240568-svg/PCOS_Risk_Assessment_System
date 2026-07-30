@@ -84,7 +84,7 @@ export default function LandingPage() {
 
           <div className="hero-image-wrap" aria-label="Doctor reviewing patient care">
             <img
-              src="../../public/images/doc.avif"
+              src="/images/doc.jpg"
               alt="Doctor standing in a bright clinical setting"
             />
             <div className="hero-floating hero-floating-top">
