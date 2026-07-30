@@ -269,6 +269,7 @@ function AssessmentItem({ patientId, assessment, onDelete }) {
   const { showToast } = useToast();
   const [viewingReport, setViewingReport] = useState(false);
   const [downloadingReport, setDownloadingReport] = useState(false);
+  const [sendingReport, setSendingReport] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const symptoms = [
     ["Weight gain", assessment.weight_gain], ["Hair growth", assessment.hair_growth],
@@ -359,6 +360,28 @@ function AssessmentItem({ patientId, assessment, onDelete }) {
     }
   }
 
+  async function sendReportEmail() {
+    setSendingReport(true);
+
+    try {
+      const response = await apiRequest(
+        `/patients/${patientId}/assessments/` +
+        `${assessment.assessment_id}/report/send-report`,
+        {
+          method: "POST",
+        },
+      );
+
+      showToast(
+        response.message || "Assessment report emailed successfully.",
+      );
+    } catch (requestError) {
+      showToast(requestError.message, "error");
+    } finally {
+      setSendingReport(false);
+    }
+  }
+
   return (
     <article className="assessment-item">
       <button className="assessment-summary" type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
@@ -372,6 +395,19 @@ function AssessmentItem({ patientId, assessment, onDelete }) {
         <div className="symptom-tags">{symptoms.map(([label, value]) => <span className={value ? "active" : ""} key={label}>{label}: {value ? "Yes" : "No"}</span>)}</div>
         {assessment.doctor_notes && <div className="doctor-note"><strong>Doctor notes</strong><p>{assessment.doctor_notes}</p></div>}
         <div className="assessment-actions">
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={sendReportEmail}
+            disabled={sendingReport}
+          >
+            {sendingReport ? (
+              <Spinner label="Sending report" />
+            ) : (
+              <Mail size={16} />
+            )}
+            Email report
+          </button>
           <button className="button button-secondary" type="button" onClick={viewReport} disabled={viewingReport}>
             {viewingReport ? <Spinner label="Loading report" /> : <Eye size={16} />} View report
           </button>

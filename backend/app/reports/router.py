@@ -76,17 +76,17 @@ def download_assessment_report(
 @router.post("/send-report")
 async def send_assessment_report(
   patient_id: int,
-  assesment_id: int,
+  assessment_id: int,
   db: Session = Depends(get_db),
   current_doctor: User = Depends(get_current_doctor),
-  EmailService: EmailService = Depends(get_email_service)  
+  email_service: EmailService = Depends(get_email_service)
 ):
     return await service.email_assessment_report(
         patient_id=patient_id,
-        assessment_id=assesment_id,
+        assessment_id=assessment_id,
         db=db,
         current_doctor=current_doctor,
-        email_service=EmailService
+        email_service=email_service
     )
     
      
