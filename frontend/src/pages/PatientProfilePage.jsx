@@ -509,13 +509,6 @@ export default function PatientProfilePage() {
               </span>
               <h2>Assessment history</h2>
             </div>
-            <button
-              className="button button-primary"
-              type="button"
-              onClick={() => setAssessmentOpen(true)}
-            >
-              <Plus size={16} /> New assessment
-            </button>
           </div>
 
           {assessments.length ? (
