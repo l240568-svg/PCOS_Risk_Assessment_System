@@ -1,8 +1,24 @@
 from dataclasses import dataclass
 
-from sqlalchemy import  delete, func
-from app.auth.models import RefreshToken, RevokedToken
+from sqlalchemy import Column, DateTime, MetaData, Table, delete, func
 from sqlalchemy.orm import Session
+
+
+metadata = MetaData()
+
+revoked_tokens = Table(
+    "revoked_tokens",
+    metadata,
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    schema="public",
+)
+
+refresh_tokens = Table(
+    "refresh_tokens",
+    metadata,
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    schema="public",
+)
 
 
 @dataclass(frozen=True)
@@ -12,18 +28,16 @@ class TokenCleanupResult:
 
 
 def cleanup_expired_tokens(db: Session) -> TokenCleanupResult:
-    """Atomically delete authentication tokens that have expired."""
-
     try:
         revoked_result = db.execute(
-            delete(RevokedToken).where(
-                RevokedToken.expires_at <= func.now()
+            delete(revoked_tokens).where(
+                revoked_tokens.c.expires_at <= func.now()
             )
         )
 
         refresh_result = db.execute(
-            delete(RefreshToken).where(
-                RefreshToken.expires_at <= func.now()
+            delete(refresh_tokens).where(
+                refresh_tokens.c.expires_at <= func.now()
             )
         )
 
