@@ -43,4 +43,4 @@ jobs:
             "psycopg2-binary>=2.9,<3"
 
       - name: Run token cleanup
-        run: python -m app.maintenance.run_token_cleanup
+        run: python -m app.maintenance.maintenance-runner.py
