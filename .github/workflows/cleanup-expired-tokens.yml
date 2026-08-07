@@ -1,0 +1,46 @@
+name: Clean up expired authentication tokens
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+      timezone: "Asia/Karachi"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-token-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Delete expired token records
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      RENDER_DATABASE_URL: ${{ secrets.RENDER_DATABASE_URL }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install cleanup dependencies
+        run: |
+          python -m pip install \
+            "SQLAlchemy>=2,<3" \
+            "psycopg2-binary>=2.9,<3"
+
+      - name: Run token cleanup
+        run: python -m app.maintenance.run_token_cleanup
