@@ -116,6 +116,7 @@ def login_doctor(
             "email": doctor.email,
             "token_type": "access",
             "refresh_jti": refresh_jti,
+            "sid": family_id,
         }
     )
     refresh_record = RefreshToken(
@@ -252,18 +253,25 @@ def reset_password(
         )
 
     try:
+        now = datetime.now(timezone.utc)
+
         user.password_hash = hash_value(new_password)
-        
-        otp_record.reset_completed_at = datetime.now(timezone.utc)
+        otp_record.reset_completed_at = now
+
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == user.user_id,
+            RefreshToken.revoked_at.is_(None),
+        ).update(
+            {"revoked_at": now},
+            synchronize_session=False,
+        )
 
         db.commit()
-
     except Exception:
         db.rollback()
         raise
    
     
-  
 
 def logout_user(
     db: Session,
@@ -284,44 +292,57 @@ def logout_user(
         )
 
     jti = payload.get("jti")
-    refresh_jti = payload.get("refresh_jti")
+    session_id = payload.get("sid")
+    subject = payload.get("sub")
     expiration = payload.get("exp")
 
-    if not jti or not expiration:
+    if not jti or not session_id or not subject or not expiration:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    try:
+        user_id = int(subject)
+    except (TypeError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
         )
 
     already_revoked = (
-        db.query(RevokedToken)
+        db.query(RevokedToken.jti)
         .filter(RevokedToken.jti == jti)
         .first()
     )
 
-    if already_revoked:
-       return
+    now = datetime.now(timezone.utc)
 
-    revoked_token = RevokedToken(
-        jti=jti,
-        expires_at=datetime.fromtimestamp(
-            expiration,
-            tz=timezone.utc,
-        ),
-    )
+    try:
+        if not already_revoked:
+            db.add(
+                RevokedToken(
+                    jti=jti,
+                    expires_at=datetime.fromtimestamp(
+                        expiration,
+                        tz=timezone.utc,
+                    ),
+                )
+            )
 
-    db.add(revoked_token)
-    
-    if refresh_jti:
-     refresh_record = (
-        db.query(RefreshToken)
-        .filter(RefreshToken.jti == refresh_jti)
-        .first()
-    )
+        db.query(RefreshToken).filter(
+            RefreshToken.family_id == session_id,
+            RefreshToken.user_id == user_id,
+            RefreshToken.revoked_at.is_(None),
+        ).update(
+            {"revoked_at": now},
+            synchronize_session=False,
+        )
 
-    if refresh_record and refresh_record.revoked_at is None:
-        refresh_record.revoked_at = datetime.now(timezone.utc)
-    db.commit()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     
     
 def refresh_tokens(
@@ -451,6 +472,7 @@ def refresh_tokens(
             "email": doctor.email,
             "token_type": "access",
             "refresh_jti": new_jti,
+            "sid": family_id,
         }
     )
 

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth.utils import hash_value, validate_password_strength, verify_hash
 from app.users.models import User
 from app.users.schemas import ChangePasswordRequest, UserUpdateRequest
+from app.auth.models import RefreshToken
 
 
 def get_user_profile(current_doctor: User) -> User:
@@ -73,4 +74,18 @@ def change_password(
     current_doctor.password_hash = hash_value(password_data.new_password)
     current_doctor.updated_at = date.today()
 
-    db.commit()
+    now = datetime.now(timezone.utc)
+
+    try:
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == current_doctor.user_id,
+            RefreshToken.revoked_at.is_(None),
+        ).update(
+            {"revoked_at": now},
+            synchronize_session=False,
+        )
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
